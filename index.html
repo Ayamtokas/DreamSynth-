@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DreamSynth+ — AI Mood & Therapy Journal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js removed as per request -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script> <!-- Font Awesome for icons -->
+
+  <style>
+    /* Custom CSS for animations and overrides */
+    :root {
+      --bg-color: #e3f2fd;
+      --primary: #5c6bc0;
+      --secondary: #81d4fa;
+      --accent: #ffd54f;
+      --text-color: #1a237e;
+      --glass: rgba(255, 255, 255, 0.3);
+      --dark-bg-color: #1a237e;
+      --dark-primary: #7986cb;
+      --dark-secondary: #42a5f5;
+      --dark-accent: #ffeb3b;
+      --dark-text-color: #e3f2fd;
+      --dark-glass: rgba(0, 0, 0, 0.3);
+    }
+    [data-theme="dark"] {
+      --bg-color: var(--dark-bg-color);
+      --primary: var(--dark-primary);
+      --secondary: var(--dark-secondary);
+      --accent: var(--dark-accent);
+      --text-color: var(--dark-text-color);
+      --glass: var(--dark-glass);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, var(--bg-color), var(--secondary));
+      color: var(--text-color);
+      transition: background 0.5s ease, color 0.5s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+      overflow-x: hidden;
+    }
+    .section {
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      transition: background 0.5s ease, backdrop-filter 0.5s ease;
+    }
+    input, textarea, button, select {
+      background-color: rgba(255, 255, 255, 0.9);
+      color: var(--text-color);
+      transition: background-color 0.5s ease, color 0.5s ease;
+    }
+    [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
+      background-color: rgba(0, 0, 0, 0.7);
+      color: var(--dark-text-color);
+    }
+    button {
+      background-color: var(--primary);
+      color: white;
+      transition: background-color 0.3s ease, transform 0.3s ease, color 0.3s ease;
+    }
+    button:hover {
+      background-color: var(--secondary);
+      color: var(--text-color); /* Changed to text-color for better contrast */
+      transform: scale(1.03) translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .gimmick-button {
+      background-color: var(--accent);
+      color: #000;
+      transition: background-color 0.3s ease, transform 0.3s ease, color 0.3s ease;
+    }
+    .gimmick-button:hover {
+      background-color: var(--primary);
+      color: white;
+    }
+    .entry {
+      background: #fffde7;
+      border-left: 5px solid var(--accent);
+      transition: background 0.5s ease, border-color 0.5s ease;
+    }
+    [data-theme="dark"] .entry {
+      background: #3f51b5;
+      border-left-color: var(--dark-accent);
+      color: var(--dark-text-color);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.8s ease-out forwards; }
+    .animate-pulse { animation: pulse 1.5s infinite ease-in-out; }
+
+    /* Modal styles */
+    .modal {
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .modal.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      background: var(--bg-color);
+      padding: 2rem;
+      border-radius: 15px;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      position: relative;
+      color: var(--text-color);
+    }
+    .close-button {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+
+    /* 3D Scene */
+    #threeJsCanvas {
+      width: 100%;
+      height: 300px; /* Adjusted height */
+      display: block;
+      background-color: transparent;
+      border-radius: 15px;
+      margin-top: 1rem;
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 120px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px 0;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%; /* Position above the text */
+      left: 50%;
+      margin-left: -60px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="p-8 flex flex-col items-center min-h-screen transition-all duration-500" data-theme="light">
+  <!-- Header -->
+  <header class="w-full max-w-4xl flex justify-between items-center mb-8">
+    <h1 class="text-4xl font-extrabold text-center flex-grow">
+      <i class="fas fa-moon text-primary mr-2"></i>DreamSynth+
+      <span class="block text-xl font-medium text-secondary">AI Mood & Self-Talk Journal</span>
+    </h1>
+    <div class="tooltip">
+      <button id="themeToggle" class="gimmick-button p-3 rounded-full shadow-lg">
+        <i class="fas fa-sun"></i>
+      </button>
+      <span class="tooltiptext">Toggle Theme</span>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-7xl">
+
+    <!-- Log Your Dream Section -->
+    <section class="section p-8 rounded-2xl shadow-xl animate-fadeIn col-span-1">
+      <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+        <i class="fas fa-cloud text-accent mr-2"></i>Log Your Dream
+      </h2>
+      <textarea id="dreamInput" placeholder="Describe your dream in vivid detail..."
+                class="w-full p-4 rounded-xl shadow-md mb-4 h-32 focus:ring-2 focus:ring-primary outline-none resize-y"></textarea>
+      <div class="flex flex-col sm:flex-row gap-4">
+        <button onclick="interpretDream()" class="flex-grow py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300">
+          <i class="fas fa-magic mr-2"></i>Generate Mood
+        </button>
+        <button onclick="saveDreamEntry()" class="flex-grow py-3 px-6 rounded-xl shadow-lg font-semibold text-lg bg-green-500 hover:bg-green-600 text-white hover:scale-105 transition-all duration-300">
+          <i class="fas fa-save mr-2"></i>Save Dream
+        </button>
+      </div>
+      <p id="moodOutput" class="mt-4 text-center text-xl font-medium text-primary animate-pulse"></p>
+    </section>
+
+    <!-- Self-Talk Generator Section -->
+    <section class="section p-8 rounded-2xl shadow-xl animate-fadeIn col-span-1">
+      <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+        <i class="fas fa-brain text-accent mr-2"></i>Self-Talk Generator
+      </h2>
+      <textarea id="problemInput" placeholder="What's on your mind? Describe your challenge or feeling..."
+                class="w-full p-4 rounded-xl shadow-md mb-4 h-32 focus:ring-2 focus:ring-primary outline-none resize-y"></textarea>
+      <div class="flex flex-col sm:flex-row gap-4">
+        <button onclick="generateSelfTalk()" class="flex-grow py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300">
+          <i class="fas fa-comment-dots mr-2"></i>Generate Affirmation
+        </button>
+        <button onclick="saveSelfTalkEntry()" class="flex-grow py-3 px-6 rounded-xl shadow-lg font-semibold text-lg bg-green-500 hover:bg-green-600 text-white hover:scale-105 transition-all duration-300">
+          <i class="fas fa-save mr-2"></i>Save Self-Talk
+        </button>
+      </div>
+      <p id="talkOutput" class="mt-4 text-center text-xl font-medium text-primary animate-pulse"></p>
+    </section>
+
+    <!-- Journal History Section -->
+    <section class="section p-8 rounded-2xl shadow-xl animate-fadeIn col-span-1 md:col-span-2 lg:col-span-1 overflow-y-auto max-h-96">
+      <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+        <i class="fas fa-book-open text-accent mr-2"></i>Journal History
+      </h2>
+      <div id="journal" class="space-y-4">
+        <!-- Journal entries will be rendered here -->
+      </div>
+      <button onclick="showConfirmClearModal()" class="mt-6 w-full py-3 px-6 rounded-xl shadow-lg font-semibold text-lg bg-red-500 hover:bg-red-600 text-white hover:scale-105 transition-all duration-300">
+        <i class="fas fa-trash-alt mr-2"></i>Clear Journal
+      </button>
+    </section>
+
+    <!-- Summary Insights Section (Replaces Dashboard & Visualizations) -->
+    <section class="section p-8 rounded-2xl shadow-xl animate-fadeIn col-span-1 md:col-span-2">
+      <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+        <i class="fas fa-lightbulb text-accent mr-2"></i>Your Insights at a Glance
+      </h2>
+      <div id="summaryInsights" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-center">
+        <div class="p-4 bg-white rounded-xl shadow-md">
+          <i class="fas fa-clipboard-list text-primary text-3xl mb-2"></i>
+          <p class="text-xl font-semibold">Total Entries</p>
+          <p id="totalEntries" class="text-4xl font-bold text-secondary">0</p>
+        </div>
+        <div class="p-4 bg-white rounded-xl shadow-md">
+          <i class="fas fa-cloud-moon text-primary text-3xl mb-2"></i>
+          <p class="text-xl font-semibold">Dream Entries</p>
+          <p id="dreamEntries" class="text-4xl font-bold text-secondary">0</p>
+        </div>
+        <div class="p-4 bg-white rounded-xl shadow-md">
+          <i class="fas fa-comment-alt text-primary text-3xl mb-2"></i>
+          <p class="text-xl font-semibold">Self-Talk Entries</p>
+          <p id="selfTalkEntries" class="text-4xl font-bold text-secondary">0</p>
+        </div>
+        <div class="p-4 bg-white rounded-xl shadow-md">
+          <i class="fas fa-leaf text-primary text-3xl mb-2"></i>
+          <p class="text-xl font-semibold">Gratitude Entries</p>
+          <p id="gratitudeEntries" class="text-4xl font-bold text-secondary">0</p>
+        </div>
+        <div class="p-4 bg-white rounded-xl shadow-md lg:col-span-2">
+          <i class="fas fa-star text-primary text-3xl mb-2"></i>
+          <p class="text-xl font-semibold">Most Frequent Mood</p>
+          <p id="mostFrequentMood" class="text-4xl font-bold text-secondary">N/A</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gimmicks & Quirks Section -->
+    <section class="section p-8 rounded-2xl shadow-xl animate-fadeIn col-span-1">
+      <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+        <i class="fas fa-dice text-accent mr-2"></i>Gimmicks & Quirks
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="surpriseMood()">
+          <i class="fas fa-gift mr-2"></i>Surprise Mood
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="dailyTip()">
+          <i class="fas fa-lightbulb mr-2"></i>Daily Mental Tip
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="showAffirmationModal()">
+          <i class="fas fa-heart mr-2"></i>Random Affirmation
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="showQuoteModal()">
+          <i class="fas fa-quote-right mr-2"></i>Inspirational Quote
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="showGratitudePrompt()">
+          <i class="fas fa-leaf mr-2"></i>Gratitude Prompt
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="showBreathingExercise()">
+          <i class="fas fa-lungs mr-2"></i>Breathing Exercise
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="showColorPalette()">
+          <i class="fas fa-palette mr-2"></i>Mood Color Palette
+        </button>
+        <button class="gimmick-button py-3 px-6 rounded-xl shadow-lg font-semibold text-lg hover:scale-105 transition-all duration-300" onclick="toggleConfetti()">
+          <i class="fas fa-fireworks mr-2"></i>Confetti Blast!
+        </button>
+      </div>
+      <p id="extraOutput" class="mt-4 text-center text-xl font-medium text-primary animate-pulse"></p>
+    </section>
+
+    <!-- 3D Visualization Section -->
+    <section class="section p-8 rounded-2xl shadow-xl animate-fadeIn col-span-1 md:col-span-2 lg:col-span-1">
+      <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+        <i class="fas fa-cube text-accent mr-2"></i>Interactive 3D Mood Sphere
+      </h2>
+      <canvas id="threeJsCanvas" class="w-full h-80 bg-gray-100 rounded-xl shadow-md"></canvas>
+      <p class="text-center text-sm mt-2 text-gray-600">Drag to rotate the sphere. Its color reflects your mood!</p>
+    </section>
+
+  </main>
+
+  <!-- Modals -->
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="hideConfirmModal()">&times;</span>
+      <h3 class="text-2xl font-bold mb-4">Confirm Action</h3>
+      <p id="confirmMessage" class="mb-6">Are you sure you want to clear all journal entries? This cannot be undone.</p>
+      <div class="flex justify-center gap-4">
+        <button onclick="clearJournal()" class="py-2 px-6 rounded-lg bg-red-500 text-white hover:bg-red-600">Yes, Clear</button>
+        <button onclick="hideConfirmModal()" class="py-2 px-6 rounded-lg bg-gray-300 text-gray-800 hover:bg-gray-400">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Affirmation/Quote Modal -->
+  <div id="infoModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="hideInfoModal()">&times;</span>
+      <h3 id="infoModalTitle" class="text-2xl font-bold mb-4"></h3>
+      <p id="infoModalContent" class="mb-6 text-lg"></p>
+      <button onclick="hideInfoModal()" class="py-2 px-6 rounded-lg bg-primary text-white hover:bg-secondary">Got It!</button>
+    </div>
+  </div>
+
+  <!-- Gratitude Prompt Modal -->
+  <div id="gratitudeModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="hideGratitudeModal()">&times;</span>
+      <h3 class="text-2xl font-bold mb-4">🙏 Gratitude Moment</h3>
+      <p id="gratitudePromptContent" class="mb-4 text-lg">What is one thing you are truly grateful for right now?</p>
+      <textarea id="gratitudeInput" placeholder="Type your gratitude here..."
+                class="w-full p-3 rounded-lg shadow-sm mb-4 h-24 focus:ring-2 focus:ring-accent outline-none resize-y"></textarea>
+      <button onclick="saveGratitudeEntry()" class="py-2 px-6 rounded-lg bg-primary text-white hover:bg-secondary">Save Gratitude</button>
+    </div>
+  </div>
+
+  <!-- Breathing Exercise Modal -->
+  <div id="breathingModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button" onclick="hideBreathingExercise()">&times;</span>
+      <h3 class="text-2xl font-bold mb-4">🌬️ Breathing Exercise</h3>
+      <p id="breathingInstruction" class="mb-4 text-lg">Inhale for 4, Hold for 4, Exhale for 6.</p>
+      <div id="breathingCircle" class="w-32 h-32 rounded-full bg-primary mx-auto flex items-center justify-center text-white text-3xl font-bold mb-6">
+        Breathe
+      </div>
+      <button onclick="startBreathingExercise()" class="py-2 px-6 rounded-lg bg-primary text-white hover:bg-secondary">Start Exercise</button>
+      <button onclick="stopBreathingExercise()" class="py-2 px-6 rounded-lg bg-red-500 text-white hover:bg-red-600 mt-2">Stop Exercise</button>
+    </div>
+  </div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confettiCanvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999;"></canvas>
+
+
+  <script>
+    // --- Global Variables and Constants ---
+    const APP_NAME = "DreamSynth+";
+    const LOCAL_STORAGE_KEY = "dreamSynthLogs";
+    const LOCAL_STORAGE_SETTINGS_KEY = "dreamSynthSettings";
+
+    const moods = [
+      "Serene 🌅", "Chaotic 🌪️", "Magical ✨", "Nostalgic 📻", "Eerie 👻", "Romantic 💘",
+      "Adventurous 🗺️", "Lonely 🌑", "Triumphant 🏆", "Confused 🌫️", "Optimistic ☀️",
+      "Reflective 🍂", "Energetic ⚡", "Calm 🧘", "Inspired 💡", "Anxious 😟",
+      "Joyful 😄", "Peaceful 🕊️", "Determined 💪", "Curious 🤔", "Melancholy 🌧️"
+    ];
+
+    const affirmations = [
+      "You are enough just as you are.", "This feeling is temporary and you are strong.",
+      "You have overcome so much already.", "Peace begins with you.",
+      "It’s okay to feel this way. You’re doing your best.", "You’re choosing peace.",
+      "I am capable of amazing things.", "My potential is limitless.",
+      "I attract positive energy.", "I am worthy of love and happiness.",
+      "Every day is a new opportunity to grow."
+    ];
+
+    const tips = [
+      "Drink water before coffee today ☕.", "Go for a 5-minute walk to refresh your brain 🧠.",
+      "Write 1 thing you’re grateful for today.", "Stretch your body and unclench your jaw.",
+      "Turn your phone on silent for 10 mins.", "Breathe in for 4, hold 4, out for 6.",
+      "Practice mindful eating for one meal.", "Limit screen time before bed.",
+      "Connect with nature for 15 minutes.", "Set a small, achievable goal for today."
+    ];
+
+    const quotes = [
+      "The only way to do great work is to love what you do. – Steve Jobs",
+      "Believe you can and you're halfway there. – Theodore Roosevelt",
+      "The future belongs to those who believe in the beauty of their dreams. – Eleanor Roosevelt",
+      "It is during our darkest moments that we must focus to see the light. – Aristotle Onassis",
+      "The best way to predict the future is to create it. – Peter Drucker"
+    ];
+
+    const moodColors = {
+      "Serene 🌅": "#81d4fa", "Chaotic 🌪️": "#ef5350", "Magical ✨": "#ce93d8", "Nostalgic 📻": "#ffb74d",
+      "Eerie 👻": "#757575", "Romantic 💘": "#f48fb1", "Adventurous 🗺️": "#aed581", "Lonely 🌑": "#424242",
+      "Triumphant 🏆": "#ffd54f", "Confused 🌫️": "#90a4ae", "Optimistic ☀️": "#ffeb3b", "Reflective 🍂": "#bcaaa4",
+      "Energetic ⚡": "#ff7043", "Calm 🧘": "#c5e1a5", "Inspired 💡": "#64b5f6", "Anxious 😟": "#ffcc80",
+      "Joyful 😄": "#ffee58", "Peaceful 🕊️": "#80cbc4", "Determined 💪": "#ab47bc", "Curious 🤔": "#e0e0e0",
+      "Melancholy 🌧️": "#9fa8da"
+    };
+
+    // --- Toast Notification System ---
+    // Moved to the top so it's defined before any calls to it.
+    function showToast(message, type = "info", duration = 3000) {
+      const toastContainer = document.getElementById("toastContainer") || (() => {
+        const div = document.createElement("div");
+        div.id = "toastContainer";
+        div.className = "fixed bottom-5 right-5 z-[1001] space-y-3";
+        document.body.appendChild(div);
+        return div;
+      })();
+
+      const toast = document.createElement("div");
+      // Removed animate-fadeIn as it interferes with fade-out transition
+      toast.className = `p-4 rounded-lg shadow-xl text-white font-semibold flex items-center gap-3 transition-all duration-300 ease-in-out transform`;
+
+      let bgColor = '';
+      let icon = '';
+      switch (type) {
+        case 'success':
+          bgColor = 'bg-green-500';
+          icon = '<i class="fas fa-check-circle"></i>';
+          break;
+        case 'error':
+          bgColor = 'bg-red-500';
+          icon = '<i class="fas fa-times-circle"></i>';
+          break;
+        case 'warning':
+          bgColor = 'bg-yellow-500';
+          icon = '<i class="fas fa-exclamation-triangle"></i>';
+          break;
+        case 'info':
+        default:
+          bgColor = 'bg-blue-500';
+          icon = '<i class="fas fa-info-circle"></i>';
+          break;
+      }
+      toast.classList.add(bgColor);
+      toast.innerHTML = `${icon}<span>${message}</span>`;
+
+      toastContainer.appendChild(toast);
+
+      // Trigger fade-in after a slight delay to ensure transition works
+      setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      }, 10); // Small delay
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        toast.addEventListener('transitionend', function handler() {
+          toast.remove();
+          toast.removeEventListener('transitionend', handler); // Clean up listener
+        });
+      }, duration);
+    }
+
+
+    // --- Utility Functions ---
+    function getTimestamp() {
+      return new Date().toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+
+    function showModal(modalId, title = '', content = '') {
+      const modal = document.getElementById(modalId);
+      const titleEl = modal.querySelector('#infoModalTitle');
+      const contentEl = modal.querySelector('#infoModalContent');
+
+      if (titleEl) titleEl.textContent = title;
+      if (contentEl) contentEl.innerHTML = content; // Use innerHTML for potential HTML content
+
+      modal.classList.add('show');
+    }
+
+    function hideModal(modalId) {
+      document.getElementById(modalId).classList.remove('show');
+    }
+
+    // --- Core Application Logic ---
+
+    /**
+     * Interprets the dream input and generates a random mood.
+     * Saves the entry and updates the journal.
+     */
+    async function interpretDream() {
+      const dream = document.getElementById("dreamInput").value.trim();
+      if (!dream) {
+        showToast("Please write your dream first!", "warning");
+        return;
+      }
+
+      // Simulate AI processing with a loading state
+      document.getElementById("moodOutput").textContent = "Analyzing dream... 🧠✨";
+      document.getElementById("moodOutput").classList.add('animate-pulse');
+
+      // Call LLM for dream interpretation (simulated)
+      const prompt = `Interpret the following dream and assign a mood from this list: ${moods.join(', ')}. Dream: "${dream}"`;
+      let chatHistory = [];
+      chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+      const payload = { contents: chatHistory };
+      const apiKey = "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        let generatedMood = "Undetermined ❓";
+
+        if (result.candidates && result.candidates.length > 0 &&
+            result.candidates[0].content && result.candidates[0].content.parts &&
+            result.candidates[0].content.parts.length > 0) {
+          const text = result.candidates[0].content.parts[0].text;
+          // Attempt to find a mood from our predefined list in the generated text
+          const foundMood = moods.find(m => text.includes(m.split(' ')[0])); // Match by first word of mood
+          generatedMood = foundMood || moods[Math.floor(Math.random() * moods.length)]; // Fallback to random if not found
+        } else {
+          generatedMood = moods[Math.floor(Math.random() * moods.length)]; // Fallback to random
+        }
+
+        document.getElementById("moodOutput").textContent = `AI Mood: ${generatedMood}`;
+        document.getElementById("moodOutput").classList.remove('animate-pulse');
+        updateMoodSphere(generatedMood); // Update 3D sphere color
+        showToast(`Mood generated: ${generatedMood}`, "success");
+      } catch (error) {
+        console.error("Error interpreting dream with LLM:", error);
+        const randomMood = moods[Math.floor(Math.random() * moods.length)];
+        document.getElementById("moodOutput").textContent = `AI Mood (Fallback): ${randomMood}`;
+        document.getElementById("moodOutput").classList.remove('animate-pulse');
+        updateMoodSphere(randomMood);
+        showToast("Failed to interpret dream, showing random mood.", "error");
+      }
+    }
+
+    /**
+     * Generates a self-talk affirmation based on the problem input.
+     * Saves the entry and updates the journal.
+     */
+    async function generateSelfTalk() {
+      const problem = document.getElementById("problemInput").value.trim();
+      if (!problem) {
+        showToast("Please describe your problem first!", "warning");
+        return;
+      }
+
+      // Simulate AI processing with a loading state
+      document.getElementById("talkOutput").textContent = "Crafting affirmation... 💬✨";
+      document.getElementById("talkOutput").classList.add('animate-pulse');
+
+      // Call LLM for affirmation generation (simulated)
+      const prompt = `Generate a positive and supportive affirmation for the following problem: "${problem}". Choose from or be inspired by this list: ${affirmations.join(', ')}.`;
+      let chatHistory = [];
+      chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+      const payload = { contents: chatHistory };
+      const apiKey = "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        let generatedAffirmation = "You are strong and capable.";
+
+        if (result.candidates && result.candidates.length > 0 &&
+            result.candidates[0].content && result.candidates[0].content.parts &&
+            result.candidates[0].content.parts.length > 0) {
+          generatedAffirmation = result.candidates[0].content.parts[0].text;
+        } else {
+          generatedAffirmation = affirmations[Math.floor(Math.random() * affirmations.length)]; // Fallback to random
+        }
+
+        document.getElementById("talkOutput").textContent = `Self-Talk: ${generatedAffirmation}`;
+        document.getElementById("talkOutput").classList.remove('animate-pulse');
+        showToast("Affirmation generated!", "success");
+      } catch (error) {
+        console.error("Error generating self-talk with LLM:", error);
+        const randomAffirmation = affirmations[Math.floor(Math.random() * affirmations.length)];
+        document.getElementById("talkOutput").textContent = `Self-Talk (Fallback): ${randomAffirmation}`;
+        document.getElementById("talkOutput").classList.remove('animate-pulse');
+        showToast("Failed to generate affirmation, showing random one.", "error");
+      }
+    }
+
+    /**
+     * Saves a dream entry to local storage.
+     */
+    function saveDreamEntry() {
+      const dream = document.getElementById("dreamInput").value.trim();
+      const mood = document.getElementById("moodOutput").textContent.replace("AI Mood: ", "").trim();
+      if (!dream || mood === "Analyzing dream... ✨" || mood === "") {
+        showToast("Please generate a mood for your dream first!", "error");
+        return;
+      }
+      saveEntry("dream", dream, mood);
+      showToast("Dream entry saved!", "success");
+    }
+
+    /**
+     * Saves a self-talk entry to local storage.
+     */
+    function saveSelfTalkEntry() {
+      const problem = document.getElementById("problemInput").value.trim();
+      const affirmation = document.getElementById("talkOutput").textContent.replace("Self-Talk: ", "").trim();
+      if (!problem || affirmation === "Crafting affirmation... 💬✨" || affirmation === "") {
+        showToast("Please generate an affirmation for your problem first!", "error");
+        return;
+      }
+      saveEntry("self-talk", problem, affirmation);
+      showToast("Self-talk entry saved!", "success");
+    }
+
+    /**
+     * Saves an entry to local storage.
+     * @param {string} type - 'dream' or 'self-talk'
+     * @param {string} text - The dream description or problem.
+     * @param {string} result - The generated mood or affirmation.
+     */
+    function saveEntry(type, text, result) {
+      const logs = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
+      logs.push({ type, text, result, timestamp: getTimestamp() });
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(logs));
+      document.getElementById("dreamInput").value = "";
+      document.getElementById("problemInput").value = "";
+      renderJournal();
+      updateSummaryInsights(); // Call new function
+    }
+
+    /**
+     * Renders the journal entries from local storage.
+     */
+    function renderJournal() {
+      const journal = document.getElementById("journal");
+      const logs = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]").reverse(); // Show latest first
+      journal.innerHTML = logs.map((entry, index) => {
+        let entryTypeLabel = '';
+        let entryResultLabel = '';
+        let iconClass = '';
+
+        if (entry.type === 'dream') {
+          entryTypeLabel = 'Dream';
+          entryResultLabel = 'Mood';
+          iconClass = 'fas fa-cloud-moon text-primary';
+        } else if (entry.type === 'self-talk') {
+          entryTypeLabel = 'Issue';
+          entryResultLabel = 'Affirmation';
+          iconClass = 'fas fa-comment-alt text-secondary';
+        } else if (entry.type === 'gratitude') { // Added specific handling for gratitude
+          entryTypeLabel = 'Gratitude';
+          entryResultLabel = 'Feeling';
+          iconClass = 'fas fa-leaf text-green-500'; // Using a distinct color for gratitude icon
+        }
+
+        return `
+          <div class="entry p-4 rounded-lg shadow-sm flex items-start space-x-3 animate-fadeIn" style="animation-delay: ${index * 0.05}s;">
+            <div class="flex-shrink-0 text-2xl">
+              <i class="${iconClass}"></i>
+            </div>
+            <div class="flex-grow">
+              <strong class="block text-sm text-gray-600">${entry.timestamp}</strong>
+              <em class="block text-lg font-medium mb-1">${entryTypeLabel}:</em>
+              <p class="text-gray-800 mb-2">${entry.text}</p>
+              <em class="block text-lg font-medium mb-1">${entryResultLabel}:</em>
+              <p class="text-primary font-semibold">${entry.result}</p>
+            </div>
+            <button onclick="deleteEntry(${logs.length - 1 - index})" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors duration-200" title="Delete Entry">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>`;
+      }).join("");
+    }
+
+    /**
+     * Deletes a specific entry from the journal.
+     * @param {number} index - The index of the entry to delete (in the original, non-reversed array).
+     */
+    function deleteEntry(index) {
+      const logs = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
+      if (index > -1 && index < logs.length) {
+        logs.splice(index, 1);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(logs));
+        renderJournal();
+        updateSummaryInsights(); // Call new function
+        showToast("Entry deleted successfully!", "info");
+      }
+    }
+
+    /**
+     * Shows the confirmation modal for clearing the journal.
+     */
+    function showConfirmClearModal() {
+      showModal('confirmModal', 'Confirm Clear Journal', 'Are you sure you want to clear ALL journal entries? This action cannot be undone.');
+    }
+
+    /**
+     * Clears all journal entries from local storage.
+     */
+    function clearJournal() {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      renderJournal();
+      updateSummaryInsights(); // Call new function
+      hideModal('confirmModal');
+      showToast("Journal cleared!", "success");
+    }
+
+    // --- Gimmicks & Extra Features ---
+
+    /**
+     * Displays a random mood from the predefined list.
+     */
+    function surpriseMood() {
+      const mood = moods[Math.floor(Math.random() * moods.length)];
+      document.getElementById("extraOutput").textContent = `🎁 Your surprise mood: ${mood}`;
+      showToast(`Surprise Mood: ${mood}`, "info");
+      updateMoodSphere(mood);
+    }
+
+    /**
+     * Displays a random daily mental tip.
+     */
+    function dailyTip() {
+      const tip = tips[Math.floor(Math.random() * tips.length)];
+      document.getElementById("extraOutput").textContent = `💡 Tip of the day: ${tip}`;
+      showToast(`Daily Tip: ${tip}`, "info");
+    }
+
+    /**
+     * Toggles between light and dark themes.
+     */
+    function toggleTheme() {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', newTheme);
+      localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify({ theme: newTheme }));
+      const themeToggleBtn = document.getElementById('themeToggle');
+      themeToggleBtn.innerHTML = newTheme === 'dark' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+      showToast(`Switched to ${newTheme} theme!`, "info");
+      // No chart colors to update now, but keep for future potential elements
+    }
+
+    /**
+     * Shows a modal with a random affirmation.
+     */
+    function showAffirmationModal() {
+      const affirmation = affirmations[Math.floor(Math.random() * affirmations.length)];
+      showModal('infoModal', '✨ Your Affirmation', affirmation);
+      showToast("Here's an affirmation for you!", "success");
+    }
+
+    /**
+     * Shows a modal with a random inspirational quote.
+     */
+    function showQuoteModal() {
+      const quote = quotes[Math.floor(Math.random() * quotes.length)];
+      showModal('infoModal', '🌟 Inspirational Quote', quote);
+      showToast("A little inspiration!", "success");
+    }
+
+    /**
+     * Shows a modal prompting for gratitude.
+     */
+    function showGratitudePrompt() {
+      showModal('gratitudeModal');
+      document.getElementById('gratitudeInput').value = ''; // Clear previous input
+      showToast("Time for some gratitude!", "info");
+    }
+
+    /**
+     * Saves the gratitude entry.
+     */
+    function saveGratitudeEntry() {
+      const gratitudeText = document.getElementById('gratitudeInput').value.trim();
+      if (gratitudeText) {
+        saveEntry("gratitude", gratitudeText, "Feeling Grateful 🙏");
+        hideModal('gratitudeModal');
+        showToast("Gratitude saved!", "success");
+      } else {
+        showToast("Please write something you're grateful for.", "warning");
+      }
+    }
+
+    // --- Breathing Exercise ---
+    let breathingInterval;
+    let breathingPhase = 0; // 0: inhale, 1: hold, 2: exhale
+    let breathingCounts = [4, 4, 6]; // Inhale, Hold, Exhale
+    let currentCount = 0;
+
+    function showBreathingExercise() {
+      showModal('breathingModal');
+      document.getElementById('breathingInstruction').textContent = 'Inhale for 4, Hold for 4, Exhale for 6.';
+      document.getElementById('breathingCircle').textContent = 'Breathe';
+      document.getElementById('breathingCircle').style.transform = 'scale(1)';
+      document.getElementById('breathingCircle').style.backgroundColor = 'var(--primary)';
+      stopBreathingExercise(); // Ensure any previous exercise is stopped
+      showToast("Let's take a mindful breath.", "info");
+    }
+
+    function startBreathingExercise() {
+      stopBreathingExercise(); // Clear any existing interval
+      const circle = document.getElementById('breathingCircle');
+      const instruction = document.getElementById('breathingInstruction');
+
+      breathingPhase = 0;
+      currentCount = 0;
+
+      function nextPhase() {
+        if (breathingPhase === 0) { // Inhale
+          instruction.textContent = `Inhale... ${breathingCounts[0] - currentCount}`;
+          circle.style.transform = `scale(${1 + (currentCount / breathingCounts[0]) * 0.5})`;
+          circle.style.backgroundColor = 'var(--primary)';
+          currentCount++;
+          if (currentCount > breathingCounts[0]) {
+            breathingPhase = 1;
+            currentCount = 0;
+          }
+        } else if (breathingPhase === 1) { // Hold
+          instruction.textContent = `Hold... ${breathingCounts[1] - currentCount}`;
+          circle.style.backgroundColor = 'var(--secondary)';
+          currentCount++;
+          if (currentCount > breathingCounts[1]) {
+            breathingPhase = 2;
+            currentCount = 0;
+          }
+        } else if (breathingPhase === 2) { // Exhale
+          instruction.textContent = `Exhale... ${breathingCounts[2] - currentCount}`;
+          circle.style.transform = `scale(${1.5 - (currentCount / breathingCounts[2]) * 0.5})`;
+          circle.style.backgroundColor = 'var(--accent)';
+          currentCount++;
+          if (currentCount > breathingCounts[2]) {
+            breathingPhase = 0; // Cycle back to inhale
+            currentCount = 0;
+          }
+        }
+      }
+      breathingInterval = setInterval(nextPhase, 1000); // Update every second
+      nextPhase(); // Call immediately to start
+    }
+
+    function stopBreathingExercise() {
+      clearInterval(breathingInterval);
+      document.getElementById('breathingCircle').textContent = 'Breathe';
+      document.getElementById('breathingCircle').style.transform = 'scale(1)';
+      document.getElementById('breathingCircle').style.backgroundColor = 'var(--primary)';
+      document.getElementById('breathingInstruction').textContent = 'Exercise stopped.';
+    }
+
+    // --- Mood Color Palette ---
+    function showColorPalette() {
+      const paletteContent = Object.entries(moodColors).map(([mood, color]) => `
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full shadow-md" style="background-color: ${color};"></div>
+          <span>${mood}</span>
+        </div>
+      `).join('');
+      showModal('infoModal', '🎨 Mood Color Palette', `<div class="grid grid-cols-2 gap-4">${paletteContent}</div>`);
+      showToast("Explore your mood colors!", "info");
+    }
+
+    // --- Confetti Animation ---
+    let confettiActive = false;
+    let confettiInterval;
+
+    function toggleConfetti() {
+      if (confettiActive) {
+        stopConfetti();
+        showToast("Confetti stopped!", "info");
+      } else {
+        startConfetti();
+        showToast("Confetti blast!", "success");
+      }
+    }
+
+    function startConfetti() {
+      confettiActive = true;
+      const canvas = document.getElementById('confettiCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      let particles = [];
+      const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'];
+
+      function createParticle() {
+        return {
+          x: Math.random() * canvas.width,
+          y: -10,
+          size: Math.random() * 10 + 5,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          speedY: Math.random() * 3 + 2,
+          speedX: Math.random() * 2 - 1,
+          rotation: Math.random() * 360,
+          rotationSpeed: Math.random() * 10 - 5
+        };
+      }
+
+      function drawParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation * Math.PI / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+
+          p.y += p.speedY;
+          p.x += p.speedX;
+          p.rotation += p.rotationSpeed;
+
+          if (p.y > canvas.height) {
+            particles.splice(i, 1);
+            i--;
+          }
+        }
+      }
+
+      function animateConfetti() {
+        if (!confettiActive) return;
+        if (particles.length < 100) { // Maintain a certain number of particles
+          for (let i = 0; i < 5; i++) {
+            particles.push(createParticle());
+          }
+        }
+        drawParticles();
+        requestAnimationFrame(animateConfetti);
+      }
+
+      confettiInterval = setInterval(() => {
+        if (confettiActive) {
+          for (let i = 0; i < 10; i++) { // Burst more particles periodically
+            particles.push(createParticle());
+          }
+        }
+      }, 500); // Add new particles every 0.5 seconds
+
+      animateConfetti();
+    }
+
+    function stopConfetti() {
+      confettiActive = false;
+      clearInterval(confettiInterval);
+      const canvas = document.getElementById('confettiCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+
+    // --- Summary Insights (Replaces Chart.js Dashboard) ---
+    function updateSummaryInsights() {
+      const logs = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
+
+      const total = logs.length;
+      let dreamCount = 0;
+      let selfTalkCount = 0;
+      let gratitudeCount = 0;
+      const moodCounts = {};
+
+      logs.forEach(entry => {
+        if (entry.type === 'dream') {
+          dreamCount++;
+          if (entry.result) {
+            moodCounts[entry.result] = (moodCounts[entry.result] || 0) + 1;
+          }
+        } else if (entry.type === 'self-talk') {
+          selfTalkCount++;
+        } else if (entry.type === 'gratitude') {
+          gratitudeCount++;
+        }
+      });
+
+      let mostFrequentMood = "N/A";
+      let maxCount = 0;
+      for (const mood in moodCounts) {
+        if (moodCounts[mood] > maxCount) {
+          maxCount = moodCounts[mood];
+          mostFrequentMood = mood;
+        }
+      }
+
+      document.getElementById('totalEntries').textContent = total;
+      document.getElementById('dreamEntries').textContent = dreamCount;
+      document.getElementById('selfTalkEntries').textContent = selfTalkCount;
+      document.getElementById('gratitudeEntries').textContent = gratitudeCount;
+      document.getElementById('mostFrequentMood').textContent = mostFrequentMood;
+    }
+
+
+    // --- Three.js 3D Visualization ---
+    let scene, camera, renderer, sphere, moodMaterial;
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    function initThreeJS() {
+      const canvas = document.getElementById('threeJsCanvas');
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+      renderer.setClearColor(0x000000, 0); // Transparent background
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+
+      // Add a light source
+      const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      directionalLight.position.set(0, 1, 1).normalize();
+      scene.add(directionalLight);
+
+      // Create the sphere
+      const geometry = new THREE.SphereGeometry(1.5, 32, 32);
+      moodMaterial = new THREE.MeshPhongMaterial({ color: new THREE.Color(moodColors["Serene 🌅"]) }); // Default mood color
+      sphere = new THREE.Mesh(geometry, moodMaterial);
+      scene.add(sphere);
+
+      camera.position.z = 3;
+
+      // Animation loop
+      const animate = () => {
+        requestAnimationFrame(animate);
+        sphere.rotation.y += 0.005; // Gentle continuous rotation
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      // Handle window resize
+      window.addEventListener('resize', onWindowResize, false);
+      function onWindowResize() {
+        const parent = canvas.parentElement;
+        canvas.style.width = '100%';
+        canvas.style.height = '300px'; // Maintain fixed height
+        camera.aspect = canvas.clientWidth / canvas.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      }
+      onWindowResize(); // Initial call to set correct size
+
+      // Mouse interaction for rotation
+      canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      canvas.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
+
+        sphere.rotation.y += deltaX * 0.005;
+        sphere.rotation.x += deltaY * 0.005;
+
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      // Touch interaction for rotation
+      canvas.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      });
+
+      canvas.addEventListener('touchend', () => {
+        isDragging = false;
+      });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.touches[0].clientX - previousMousePosition.x;
+        const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+        sphere.rotation.y += deltaX * 0.005;
+        sphere.rotation.x += deltaY * 0.005;
+
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      });
+    }
+
+    /**
+     * Updates the color of the 3D mood sphere based on the current mood.
+     * @param {string} mood - The mood string (e.g., "Serene 🌅").
+     */
+    function updateMoodSphere(mood) {
+      const color = moodColors[mood] || '#cccccc'; // Default to grey if mood not found
+      if (moodMaterial) {
+        moodMaterial.color.set(color);
+      }
+    }
+
+
+    // --- Initialization on Load ---
+    window.onload = function () {
+      // Apply saved theme
+      const savedSettings = JSON.parse(localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY) || "{}");
+      if (savedSettings.theme) {
+        document.body.setAttribute('data-theme', savedSettings.theme);
+        const themeToggleBtn = document.getElementById('themeToggle');
+        themeToggleBtn.innerHTML = savedSettings.theme === 'dark' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+      } else {
+        // Set default light theme icon
+        document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun"></i>';
+      }
+
+      renderJournal();
+      updateSummaryInsights(); // Call the new summary insights function
+      initThreeJS();
+
+      // Event Listeners
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      document.getElementById('confirmModal').addEventListener('click', (e) => {
+        if (e.target.id === 'confirmModal') hideModal('confirmModal');
+      });
+      document.getElementById('infoModal').addEventListener('click', (e) => {
+        if (e.target.id === 'infoModal') hideModal('infoModal');
+      });
+      document.getElementById('gratitudeModal').addEventListener('click', (e) => {
+        if (e.target.id === 'gratitudeModal') hideModal('gratitudeModal');
+      });
+      document.getElementById('breathingModal').addEventListener('click', (e) => {
+        if (e.target.id === 'breathingModal') hideModal('breathingModal');
+      });
+
+      showToast("Welcome back to DreamSynth+!", "info");
+    };
+  </script>
+</body>
+</html>
